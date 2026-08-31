@@ -4,6 +4,12 @@
 
 This project follows the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.4.7] - 2026-08-31
+
+### Fixed
+
+- **OpenClaw 2026.8.1 Plugin SDK compatibility:** Import `createTypingCallbacks` from `openclaw/plugin-sdk/channel-message` instead of the removed `openclaw/plugin-sdk/channel-runtime` compatibility subpath. The replacement remains compatible with the declared minimum host version, OpenClaw 2026.5.12.
+
 ## [2.4.5] - 2026-06-22
 
 ### Added

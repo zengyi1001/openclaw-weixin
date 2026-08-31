@@ -4,6 +4,12 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/) 格式。
 
+## [2.4.7] - 2026-08-31
+
+### 修复
+
+- **OpenClaw 2026.8.1 Plugin SDK 兼容性：** 将 `createTypingCallbacks` 的导入路径从已删除的兼容子路径 `openclaw/plugin-sdk/channel-runtime` 调整为 `openclaw/plugin-sdk/channel-message`。新路径继续兼容插件声明的最低宿主版本 OpenClaw 2026.5.12。
+
 ## [2.4.5] - 2026-06-22
 
 ### 新增
