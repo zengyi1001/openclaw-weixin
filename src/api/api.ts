@@ -88,6 +88,11 @@ const pkg = readPackageJson();
 
 const CHANNEL_VERSION = pkg.version ?? "unknown";
 
+/** Plugin version sent to the real-name acctweb as `plugin_version`. */
+export function getPluginVersion(): string {
+  return CHANNEL_VERSION;
+}
+
 /** iLink-App-Id: 直接读取 package.json 顶层 ilink_appid 字段。 */
 const ILINK_APP_ID: string = pkg.ilink_appid ?? "";
 

@@ -6,6 +6,13 @@
 
 ## [未发布]
 
+## [3.0.0-dev-001] - 2026-10-14
+
+### 新增
+
+- **绑定前实名凭证：** 扫码连接前先获取 `bot_spam_ticket`。终端里先确认是否连到本人的微信 ClawBot；本人连接直接出绑定二维码，他人连接先完成实名授权。状态名包含 `need_verifycode` 时仍要求输入手机上的数字。
+- **绑定凭证接口地址：** `channels.openclaw-weixin.acctwebBaseUrl` 可改 `botrealnameverifycgi` 的协议、主机和端口。默认仍是 `https://weixin110.qq.com`（443）；测试环境可设为办公网可达的 `http://<主机>:8088`。
+
 ## [2.4.10] - 2026-10-10
 
 ### 修复

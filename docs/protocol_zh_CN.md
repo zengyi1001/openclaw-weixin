@@ -95,11 +95,12 @@ POST /ilink/bot/get_bot_qrcode?bot_type=3
 
 ```json
 {
-  "local_token_list": []
+  "local_token_list": [],
+  "bot_spam_ticket": "<32 位 hex>"
 }
 ```
 
-`local_token_list` 可以为空。客户端最多发送本地保存的最近 10 个 Bot token。
+`local_token_list` 可以为空。客户端最多发送本地保存的最近 10 个 Bot token。获取这张绑定二维码之前，客户端先 GET `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<插件版本>`，拿到 `bot_spam_ticket`。`channels.openclaw-weixin.acctwebBaseUrl` 可改这个接口的协议、主机和端口，路径不变；测试环境常用 `http://<办公网主机>:8088`。选择连到他人的 Bot 时，才会继续 GET `step=query_auth_result`；`auth_status` 不是 `1` 时不调用 `get_bot_qrcode`。选择连到本人的 Bot 时不查询 `auth_status`。
 
 响应体：
 
@@ -142,7 +143,7 @@ GET /ilink/bot/get_qrcode_status?qrcode=<编码后的二维码值>&verify_code=<
 | `scaned` | 已扫码，继续验证 |
 | `confirmed` | 登录成功，可以保存凭证 |
 | `expired` | 二维码过期，可以刷新 |
-| `need_verifycode` | 需要输入手机上显示的验证码 |
+| `need_verifycode`、`confirmed_but_need_verifycode`，以及任何包含 `need_verifycode` 的状态 | 需要输入手机上显示的数字 |
 | `verify_code_blocked` | 验证失败次数过多，需要刷新或停止 |
 | `scaned_but_redirect` | 存在 `redirect_host` 时切换地址继续轮询 |
 | `binded_redirect` | Bot 已经绑定到当前 OpenClaw 实例 |

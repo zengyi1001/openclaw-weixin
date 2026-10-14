@@ -17,6 +17,13 @@ describe("WeixinConfigSchema", () => {
     });
   });
 
+  it("accepts an acctweb origin that includes a non-443 port", () => {
+    const result = WeixinConfigSchema.parse({
+      acctwebBaseUrl: "http://10.1.2.3:8088",
+    });
+    expect(result.acctwebBaseUrl).toBe("http://10.1.2.3:8088");
+  });
+
   it("accepts custom baseUrl and cdnBaseUrl", () => {
     const result = WeixinConfigSchema.parse({
       baseUrl: "https://custom.api.com",

@@ -95,11 +95,12 @@ Request body:
 
 ```json
 {
-  "local_token_list": []
+  "local_token_list": [],
+  "bot_spam_ticket": "<32 hex chars>"
 }
 ```
 
-`local_token_list` may be empty. The client sends at most the most recent ten locally stored bot tokens.
+`local_token_list` may be empty. The client sends at most the most recent ten locally stored bot tokens. Before this request, the client GETs `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<plugin version>` and obtains `bot_spam_ticket`. `channels.openclaw-weixin.acctwebBaseUrl` can replace that origin's scheme, host, and port; the path stays the same. A test environment commonly uses `http://<office-network host>:8088`. Connecting to someone else's bot also polls `step=query_auth_result`; the client does not call `get_bot_qrcode` unless `auth_status` is `1`. Connecting to the operator's own bot does not query `auth_status`.
 
 Response body:
 
@@ -142,7 +143,7 @@ The client handles these statuses:
 | `scaned` | QR code was scanned; verification continues |
 | `confirmed` | Login succeeded and credentials can be stored |
 | `expired` | QR code expired and may be refreshed |
-| `need_verifycode` | The user must provide the displayed verification code |
+| `need_verifycode`, `confirmed_but_need_verifycode`, and any status containing `need_verifycode` | The user must enter the digits shown on the phone |
 | `verify_code_blocked` | Too many verification failures; refresh or stop |
 | `scaned_but_redirect` | Continue polling at `redirect_host` when present |
 | `binded_redirect` | The bot is already bound to this OpenClaw instance |

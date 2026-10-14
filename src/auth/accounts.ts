@@ -302,6 +302,23 @@ export function loadConfigRouteTag(accountId?: string): string | undefined {
 }
 
 /**
+ * Read `acctwebBaseUrl` from openclaw.json.
+ * Per-account `accounts[accountId].acctwebBaseUrl` wins over the channel value.
+ * The value is an origin such as `http://10.x.x.x:8088`; the CGI path is fixed.
+ */
+export function loadConfigAcctwebBaseUrl(accountId?: string): string | undefined {
+  const section = loadRouteTagSection();
+  if (!section) return undefined;
+  if (accountId) {
+    const accounts = section.accounts as Record<string, Record<string, unknown>> | undefined;
+    const value = accounts?.[accountId]?.acctwebBaseUrl;
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  const value = section.acctwebBaseUrl;
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/**
  * Read `botAgent` from `channels.openclaw-weixin.botAgent` in openclaw.json.
  * Returns the raw configured string (caller is responsible for sanitization)
  * or undefined when not set. Reuses the cached channel section.
@@ -358,6 +375,8 @@ type WeixinAccountConfig = {
   cdnBaseUrl?: string;
   /** Optional SKRouteTag source; read from openclaw.json when `accountId` is passed to `loadConfigRouteTag`. */
   routeTag?: number | string;
+  /** Optional botrealnameverifycgi origin, for example `http://10.x.x.x:8088`. */
+  acctwebBaseUrl?: string;
 };
 
 type WeixinSectionConfig = WeixinAccountConfig & {

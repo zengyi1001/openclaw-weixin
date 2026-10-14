@@ -27,6 +27,7 @@ import { deactivateQuoteStoreAccount, initializeQuoteStore } from "./messaging/q
 import { logger } from "./util/logger.js";
 import {
   DEFAULT_ILINK_BOT_TYPE,
+  QR_LOGIN_WAIT_MS,
   startWeixinLoginWithQr,
   waitForWeixinLogin,
   displayQRCode,
@@ -425,10 +426,10 @@ export const weixinPlugin: ChannelPlugin<ResolvedWeixinAccount> = {
         throw new Error(startResult.message);
       }
 
-      log(`\n用手机微信扫描以下二维码，以继续连接：\n`);
+      log(`\n${startResult.message}`);
       await displayQRCode(startResult.qrcodeUrl!);
 
-      const loginTimeoutMs = 480_000;
+      const loginTimeoutMs = QR_LOGIN_WAIT_MS;
       log(`\n正在等待操作...\n`);
 
       const waitResult: WeixinQrWaitResult = await waitForWeixinLogin({
@@ -585,6 +586,17 @@ export const weixinPlugin: ChannelPlugin<ResolvedWeixinAccount> = {
         force,
         verbose,
       });
+      if (!result.qrcodeUrl) {
+        logger.warn(
+          `loginWithQrStart: failed to get QR code accountId=${accountId ?? ""} message=${result.message}`,
+        );
+      } else {
+        logger.info(
+          `loginWithQrStart: bind qr ready accountId=${accountId ?? ""} sessionKey=${result.sessionKey} bindOwnerMode=${result.bindOwnerMode ?? ""}`,
+        );
+        process.stdout.write(`\n${result.message}`);
+        await displayQRCode(result.qrcodeUrl);
+      }
       // Return sessionKey so the client can pass it back in loginWithQrWait.
       return {
         qrDataUrl: result.qrcodeUrl,

@@ -84,6 +84,18 @@ When multiple accounts are logged in, isolate direct-message sessions by account
 openclaw config set session.dmScope per-account-channel-peer
 ```
 
+### Bind-ticket endpoint
+
+`channels.openclaw-weixin.acctwebBaseUrl` is the origin of `botrealnameverifycgi`: scheme, host, and port. The path stays `/security/acct/botrealnameverifycgi`. When unset, the plugin uses `https://weixin110.qq.com` (port 443).
+
+For a test environment, set port 8088 to an address this OpenClaw process can reach on the office network. The process calls that origin directly.
+
+```bash
+openclaw config set 'channels["openclaw-weixin"].acctwebBaseUrl' '"http://10.1.2.3:8088"' --strict-json
+```
+
+A per-account `accounts.<accountId>.acctwebBaseUrl` overrides the channel value.
+
 ### Custom BotAgent
 
 Set an optional identifier for backend log attribution and monitoring:

@@ -12,6 +12,11 @@ const weixinAccountSchema = z.object({
   baseUrl: z.string().default(DEFAULT_BASE_URL),
   cdnBaseUrl: z.string().default(CDN_BASE_URL),
   routeTag: z.number().optional(),
+  /**
+   * Origin of `botrealnameverifycgi`. Include the port when it is not 443,
+   * for example `http://10.x.x.x:8088`. The CGI path stays fixed.
+   */
+  acctwebBaseUrl: z.string().optional(),
 });
 
 const quoteCacheSchema = z.object({

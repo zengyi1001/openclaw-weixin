@@ -84,6 +84,18 @@ openclaw channels login --channel openclaw-weixin
 openclaw config set session.dmScope per-account-channel-peer
 ```
 
+### 绑定凭证接口地址
+
+`channels.openclaw-weixin.acctwebBaseUrl` 是 `botrealnameverifycgi` 的源地址，包含协议、主机和端口。路径固定为 `/security/acct/botrealnameverifycgi`。不配置时使用 `https://weixin110.qq.com`（443）。
+
+测试环境把端口改成 8088，并写成办公网里这台 OpenClaw 能直接访问的地址。请求由本机进程发出，不会经远端开发环境转发。
+
+```bash
+openclaw config set 'channels["openclaw-weixin"].acctwebBaseUrl' '"http://10.1.2.3:8088"' --strict-json
+```
+
+账号级 `accounts.<accountId>.acctwebBaseUrl` 优先于渠道级配置。
+
 ### 自定义 BotAgent
 
 可以设置一个用于后台日志归因和监控的标识：
