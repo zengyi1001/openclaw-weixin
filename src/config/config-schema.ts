@@ -17,6 +17,11 @@ const weixinAccountSchema = z.object({
    * for example `http://10.x.x.x:8088`. The CGI path stays fixed.
    */
   acctwebBaseUrl: z.string().optional(),
+  /**
+   * HTTP proxy for `botrealnameverifycgi` only. The request target stays
+   * `acctwebBaseUrl` or `https://weixin110.qq.com`. Example: `http://10.x.x.x:8088`.
+   */
+  acctwebProxy: z.string().optional(),
 });
 
 const quoteCacheSchema = z.object({

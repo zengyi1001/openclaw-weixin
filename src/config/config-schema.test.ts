@@ -24,6 +24,13 @@ describe("WeixinConfigSchema", () => {
     expect(result.acctwebBaseUrl).toBe("http://10.1.2.3:8088");
   });
 
+  it("accepts an HTTP proxy for the bind-ticket endpoint", () => {
+    const result = WeixinConfigSchema.parse({
+      acctwebProxy: "http://10.1.2.3:8088",
+    });
+    expect(result.acctwebProxy).toBe("http://10.1.2.3:8088");
+  });
+
   it("accepts custom baseUrl and cdnBaseUrl", () => {
     const result = WeixinConfigSchema.parse({
       baseUrl: "https://custom.api.com",

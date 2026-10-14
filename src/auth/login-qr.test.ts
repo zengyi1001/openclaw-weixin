@@ -7,6 +7,8 @@ vi.mock("./accounts.js", () => ({
   listIndexedWeixinAccountIds: () => [],
   loadWeixinAccount: () => undefined,
   loadConfigAcctwebBaseUrl: () => undefined,
+  loadConfigAcctwebProxy: () => undefined,
+  loadConfigRouteTag: () => undefined,
 }));
 vi.mock("qrcode-terminal", () => ({ default: { generate: vi.fn() } }));
 

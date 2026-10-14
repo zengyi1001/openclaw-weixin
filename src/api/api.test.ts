@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+import * as accounts from "../auth/accounts.js";
+
 // Mock logger
 vi.mock("../util/logger.js", () => ({
   logger: {
@@ -103,6 +105,14 @@ describe("getUpdates", () => {
     await getUpdates({ baseUrl: "https://api.example.com" });
     const [url] = mockFetch.mock.calls[0];
     expect(url).toContain("https://api.example.com/ilink/bot/getupdates");
+  });
+
+  it("appends _cradle_hostname from routeTag", async () => {
+    vi.spyOn(accounts, "loadConfigRouteTag").mockReturnValue("10086");
+    mockFetch.mockResolvedValueOnce(mockResponse({ ret: 0 }));
+    await getUpdates({ baseUrl: "https://api.example.com" });
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(new URL(url).searchParams.get("_cradle_hostname")).toBe("g10086");
   });
 
   it("forwards external abortSignal to the underlying fetch", async () => {

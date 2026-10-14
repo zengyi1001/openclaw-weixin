@@ -319,6 +319,23 @@ export function loadConfigAcctwebBaseUrl(accountId?: string): string | undefined
 }
 
 /**
+ * Read `acctwebProxy` from openclaw.json.
+ * Per-account `accounts[accountId].acctwebProxy` wins over the channel value.
+ * The value is an HTTP proxy such as `http://10.x.x.x:8088`, not the CGI origin.
+ */
+export function loadConfigAcctwebProxy(accountId?: string): string | undefined {
+  const section = loadRouteTagSection();
+  if (!section) return undefined;
+  if (accountId) {
+    const accounts = section.accounts as Record<string, Record<string, unknown>> | undefined;
+    const value = accounts?.[accountId]?.acctwebProxy;
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  const value = section.acctwebProxy;
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/**
  * Read `botAgent` from `channels.openclaw-weixin.botAgent` in openclaw.json.
  * Returns the raw configured string (caller is responsible for sanitization)
  * or undefined when not set. Reuses the cached channel section.
@@ -377,6 +394,8 @@ type WeixinAccountConfig = {
   routeTag?: number | string;
   /** Optional botrealnameverifycgi origin, for example `http://10.x.x.x:8088`. */
   acctwebBaseUrl?: string;
+  /** Optional HTTP proxy used only for botrealnameverifycgi, for example `http://10.x.x.x:8088`. */
+  acctwebProxy?: string;
 };
 
 type WeixinSectionConfig = WeixinAccountConfig & {

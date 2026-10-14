@@ -86,15 +86,15 @@ openclaw config set session.dmScope per-account-channel-peer
 
 ### 绑定凭证接口地址
 
-`channels.openclaw-weixin.acctwebBaseUrl` 是 `botrealnameverifycgi` 的源地址，包含协议、主机和端口。路径固定为 `/security/acct/botrealnameverifycgi`。不配置时使用 `https://weixin110.qq.com`（443）。
+默认地址是 `https://weixin110.qq.com/security/acct/botrealnameverifycgi`（443）。需要更换源站时配置 `channels.openclaw-weixin.acctwebBaseUrl`。账号级 `accounts.<accountId>.acctwebBaseUrl` 优先于渠道级配置。
 
-测试环境把端口改成 8088，并写成办公网里这台 OpenClaw 能直接访问的地址。请求由本机进程发出，不会经远端开发环境转发。
+前面有 HTTP 代理时，把代理配到 `channels.openclaw-weixin.acctwebProxy`。请求目标仍是上面的源站，只有获取和查询绑定凭证会走这个代理。账号级 `accounts.<accountId>.acctwebProxy` 优先于渠道级配置。
 
 ```bash
-openclaw config set 'channels["openclaw-weixin"].acctwebBaseUrl' '"http://10.1.2.3:8088"' --strict-json
+openclaw config set 'channels["openclaw-weixin"].acctwebProxy' '"http://proxy.example:8088"' --strict-json
 ```
 
-账号级 `accounts.<accountId>.acctwebBaseUrl` 优先于渠道级配置。
+配置了 `channels.openclaw-weixin.routeTag` 时，所有微信接口请求都会带上 `_cradle_hostname=g<routeTag>`。例如 `routeTag` 为 `10086` 时，参数是 `_cradle_hostname=g10086`。
 
 ### 自定义 BotAgent
 

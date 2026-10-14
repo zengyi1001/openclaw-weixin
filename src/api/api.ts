@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadConfigBotAgent, loadConfigRouteTag } from "../auth/accounts.js";
+import { appendCradleHostname } from "../auth/route-tag.js";
 import { logger } from "../util/logger.js";
 import { redactBody, redactUrl } from "../util/redact.js";
 
@@ -322,8 +323,10 @@ export async function apiGetFetch(params: {
 }): Promise<string> {
   const base = ensureTrailingSlash(params.baseUrl);
   const url = new URL(params.endpoint, base);
+  const routeTag = loadConfigRouteTag();
+  appendCradleHostname(url, routeTag);
   const hdrs = buildCommonHeaders();
-  logger.debug(`GET ${redactUrl(url.toString())}`);
+  logger.info(`GET ${url.toString()}`);
 
   const timeoutMs = params.timeoutMs;
   const controller = timeoutMs != null && timeoutMs > 0 ? new AbortController() : undefined;
@@ -402,8 +405,10 @@ export async function apiPostFetch(params: {
 }): Promise<string> {
   const base = ensureTrailingSlash(params.baseUrl);
   const url = new URL(params.endpoint, base);
+  const routeTag = loadConfigRouteTag();
+  appendCradleHostname(url, routeTag);
   const hdrs = buildHeaders({ token: params.token });
-  logger.debug(`POST ${redactUrl(url.toString())} body=${redactBody(params.body)}`);
+  logger.info(`POST ${url.toString()} body=${redactBody(params.body)}`);
 
   const controller = params.timeoutMs !== undefined ? new AbortController() : undefined;
   const t =

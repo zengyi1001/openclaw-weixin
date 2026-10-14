@@ -11,7 +11,6 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/) format.
 ### Added
 
 - **Real-name credential before bind:** Fetch a `bot_spam_ticket` before requesting the bind QR code. The terminal asks whether this OpenClaw connects to the operator's own WeChat ClawBot; self-bind skips the real-name QR, while binding someone else's bot waits for real-name authorization. Any QR status containing `need_verifycode` still asks for the digits shown on the phone.
-- **Bind-ticket endpoint:** `channels.openclaw-weixin.acctwebBaseUrl` overrides the scheme, host, and port of `botrealnameverifycgi`. The default remains `https://weixin110.qq.com` (port 443). A test environment can use an office-network address such as `http://<host>:8088`.
 
 ## [2.4.10] - 2026-10-10
 

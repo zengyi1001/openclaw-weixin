@@ -86,15 +86,15 @@ openclaw config set session.dmScope per-account-channel-peer
 
 ### Bind-ticket endpoint
 
-`channels.openclaw-weixin.acctwebBaseUrl` is the origin of `botrealnameverifycgi`: scheme, host, and port. The path stays `/security/acct/botrealnameverifycgi`. When unset, the plugin uses `https://weixin110.qq.com` (port 443).
+The default URL is `https://weixin110.qq.com/security/acct/botrealnameverifycgi` (port 443). Set `channels.openclaw-weixin.acctwebBaseUrl` only when the origin itself changes. A per-account `accounts.<accountId>.acctwebBaseUrl` overrides the channel value.
 
-For a test environment, set port 8088 to an address this OpenClaw process can reach on the office network. The process calls that origin directly.
+To send those requests through an HTTP proxy, set `channels.openclaw-weixin.acctwebProxy`. The request target stays the origin above. Only the bind-ticket fetch and status query use this proxy. A per-account `accounts.<accountId>.acctwebProxy` overrides the channel value.
 
 ```bash
-openclaw config set 'channels["openclaw-weixin"].acctwebBaseUrl' '"http://10.1.2.3:8088"' --strict-json
+openclaw config set 'channels["openclaw-weixin"].acctwebProxy' '"http://proxy.example:8088"' --strict-json
 ```
 
-A per-account `accounts.<accountId>.acctwebBaseUrl` overrides the channel value.
+When `channels.openclaw-weixin.routeTag` is set, every Weixin API request adds `_cradle_hostname=g<routeTag>`. A route tag of `10086` sends `_cradle_hostname=g10086`.
 
 ### Custom BotAgent
 

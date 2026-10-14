@@ -43,7 +43,7 @@
 | `X-WECHAT-UIN` | 随机 uint32 的十进制字符串再进行 base64 编码 |
 | `iLink-App-Id` | 插件应用 ID，目前为 `bot` |
 | `iLink-App-ClientVersion` | 插件版本按 `0x00MMNNPP` 编码后转成十进制字符串 |
-| `SKRouteTag` | 可选，由部署配置的路由标签 |
+| `SKRouteTag` | 可选，由部署配置的路由标签。同时，所有微信接口 URL 会带上 `_cradle_hostname=g<routeTag>` |
 
 客户端行为：二维码状态轮询发送应用请求头（`iLink-App-Id`、`iLink-App-ClientVersion` 和可选的 `SKRouteTag`），不添加 `AuthorizationType`、`Authorization` 或 `X-WECHAT-UIN`。获取二维码的 POST 请求使用 JSON POST 请求头，包括 `AuthorizationType` 和 `X-WECHAT-UIN`，但不携带 `Authorization` 和 `base_info`。
 
@@ -100,7 +100,7 @@ POST /ilink/bot/get_bot_qrcode?bot_type=3
 }
 ```
 
-`local_token_list` 可以为空。客户端最多发送本地保存的最近 10 个 Bot token。获取这张绑定二维码之前，客户端先 GET `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<插件版本>`，拿到 `bot_spam_ticket`。`channels.openclaw-weixin.acctwebBaseUrl` 可改这个接口的协议、主机和端口，路径不变；测试环境常用 `http://<办公网主机>:8088`。选择连到他人的 Bot 时，才会继续 GET `step=query_auth_result`；`auth_status` 不是 `1` 时不调用 `get_bot_qrcode`。选择连到本人的 Bot 时不查询 `auth_status`。
+`local_token_list` 可以为空。客户端最多发送本地保存的最近 10 个 Bot token。获取这张绑定二维码之前，客户端先 GET `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<插件版本>`，拿到 `bot_spam_ticket`。配置了 `routeTag` 时还会带上 `_cradle_hostname=g<routeTag>`。`channels.openclaw-weixin.acctwebBaseUrl` 只更换源地址，路径不变。`channels.openclaw-weixin.acctwebProxy` 是这两次 GET 使用的 HTTP 代理，目标源地址不变。选择连到他人的 Bot 时，才会继续 GET `step=query_auth_result`；`auth_status` 不是 `1` 时不调用 `get_bot_qrcode`。选择连到本人的 Bot 时不查询 `auth_status`。
 
 响应体：
 

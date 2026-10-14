@@ -1,4 +1,7 @@
-import { loadConfigAcctwebBaseUrl } from "./accounts.js";
+import { ProxyAgent, fetch as undiciFetch } from "undici";
+
+import { loadConfigAcctwebBaseUrl, loadConfigAcctwebProxy, loadConfigRouteTag } from "./accounts.js";
+import { appendCradleHostname, cradleHostname } from "./route-tag.js";
 import { logger } from "../util/logger.js";
 import { redactBody, redactToken, redactUrl } from "../util/redact.js";
 
@@ -26,6 +29,7 @@ export class BotSpamTicketError extends Error {
 const FETCH_TICKET_FAILED = "无法获取绑定凭证，连接已停止。";
 const TICKET_INVALID = "绑定凭证无效，请重新开始连接。";
 const INVALID_ACCTWEB_BASE_URL = "绑定接口地址配置无效，连接已停止。";
+const INVALID_ACCTWEB_PROXY = "绑定代理地址配置无效，连接已停止。";
 const PENDING_LOG_INTERVAL_MS = 30_000;
 
 function acctwebStep(url: string): string {
@@ -40,6 +44,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/** The CGI may return fields at the top level or under `data`. */
+function responseBody(raw: Record<string, unknown>): Record<string, unknown> {
+  return isRecord(raw.data) ? raw.data : raw;
+}
+
+function readUnixSeconds(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
 export function parseBotSpamTicketContext(raw: unknown, nowSec: number): BotSpamTicketContext {
   if (!isRecord(raw)) {
     throw new BotSpamTicketError(FETCH_TICKET_FAILED);
@@ -52,9 +70,10 @@ export function parseBotSpamTicketContext(raw: unknown, nowSec: number): BotSpam
     logger.warn(`get_auth_url rejected errcode=${raw.errcode}`);
     throw new BotSpamTicketError(FETCH_TICKET_FAILED);
   }
-  const ticket = raw.bot_spam_ticket;
-  const authUrl = raw.auth_url;
-  const expireTimeSec = raw.expire_time;
+  const body = responseBody(raw);
+  const ticket = body.bot_spam_ticket;
+  const authUrl = body.auth_url;
+  const expireTimeSec = readUnixSeconds(body.expire_time);
   if (typeof ticket !== "string" || !TICKET_RE.test(ticket)) {
     logger.warn("get_auth_url bot_spam_ticket missing or not 32 hex");
     throw new BotSpamTicketError(FETCH_TICKET_FAILED);
@@ -63,11 +82,7 @@ export function parseBotSpamTicketContext(raw: unknown, nowSec: number): BotSpam
     logger.warn("get_auth_url auth_url empty");
     throw new BotSpamTicketError(FETCH_TICKET_FAILED);
   }
-  if (
-    typeof expireTimeSec !== "number" ||
-    !Number.isFinite(expireTimeSec) ||
-    expireTimeSec <= nowSec
-  ) {
+  if (expireTimeSec === undefined || expireTimeSec <= nowSec) {
     logger.warn(
       `get_auth_url expire_time invalid or expired expire_time=${String(expireTimeSec)} nowSec=${nowSec}`,
     );
@@ -77,11 +92,19 @@ export function parseBotSpamTicketContext(raw: unknown, nowSec: number): BotSpam
 }
 
 export function parseBotSpamAuthStatus(raw: unknown): BotSpamAuthStatus {
-  if (!isRecord(raw) || typeof raw.auth_status !== "number") {
+  if (!isRecord(raw)) {
     logger.warn("query_auth_result auth_status missing");
     throw new BotSpamTicketError(FETCH_TICKET_FAILED);
   }
-  const status = raw.auth_status;
+  if (typeof raw.ret === "number" && raw.ret !== 0) {
+    logger.warn(`query_auth_result rejected ret=${raw.ret}`);
+    throw new BotSpamTicketError(FETCH_TICKET_FAILED);
+  }
+  const status = readUnixSeconds(responseBody(raw).auth_status);
+  if (status === undefined) {
+    logger.warn("query_auth_result auth_status missing");
+    throw new BotSpamTicketError(FETCH_TICKET_FAILED);
+  }
   if (status !== 0 && status !== 1 && status !== 2 && status !== 3) {
     logger.warn(`query_auth_result auth_status invalid status=${String(status)}`);
     throw new BotSpamTicketError(FETCH_TICKET_FAILED);
@@ -89,7 +112,9 @@ export function parseBotSpamAuthStatus(raw: unknown): BotSpamAuthStatus {
   return status;
 }
 
-/** Use scheme, host, and port from `acctwebBaseUrl`. An empty value keeps the public 443 origin. */
+export { cradleHostname } from "./route-tag.js";
+
+/** Use scheme, host, and port from `acctwebBaseUrl`. An empty value keeps `https://weixin110.qq.com`. */
 export function resolveAcctwebOrigin(raw: string | undefined): string {
   const value = raw?.trim();
   if (!value) return ACCTWEB_ORIGIN;
@@ -119,62 +144,120 @@ function requestAcctwebOrigin(opts: { acctwebOrigin?: string; accountId?: string
   return resolveAcctwebOrigin(loadConfigAcctwebBaseUrl(opts.accountId));
 }
 
-function acctwebUrl(step: string, params: Record<string, string>, origin: string): string {
+/** Use scheme, host, and port from `acctwebProxy`. An empty value sends the request directly. */
+export function resolveAcctwebProxy(raw: string | undefined): string | undefined {
+  const value = raw?.trim();
+  if (!value) return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    logger.warn("acctwebProxy is not a URL");
+    throw new BotSpamTicketError(INVALID_ACCTWEB_PROXY);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    logger.warn(`acctwebProxy scheme rejected scheme=${parsed.protocol}`);
+    throw new BotSpamTicketError(INVALID_ACCTWEB_PROXY);
+  }
+  if (!parsed.hostname) {
+    logger.warn("acctwebProxy missing host");
+    throw new BotSpamTicketError(INVALID_ACCTWEB_PROXY);
+  }
+  if (parsed.pathname !== "/" && parsed.pathname !== "") {
+    logger.info(`acctwebProxy path ignored proxy=${parsed.origin}`);
+  }
+  return parsed.origin;
+}
+
+function requestAcctwebProxy(opts: { acctwebProxy?: string; accountId?: string }): string | undefined {
+  if (opts.acctwebProxy !== undefined) return resolveAcctwebProxy(opts.acctwebProxy);
+  return resolveAcctwebProxy(loadConfigAcctwebProxy(opts.accountId));
+}
+
+function acctwebUrl(
+  step: string,
+  params: Record<string, string>,
+  origin: string,
+  routeTag: string | undefined,
+): string {
   const url = new URL(ACCTWEB_CGI_PATH, origin);
   url.searchParams.set("step", step);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
+  appendCradleHostname(url, routeTag);
   return url.toString();
 }
 
+type AcctwebInit = RequestInit & { dispatcher?: ProxyAgent };
+
 async function acctwebGet(opts: {
   url: string;
-  fetchImpl?: typeof fetch;
+  proxy?: string;
+  fetchImpl?: (input: string, init: AcctwebInit) => Promise<Response>;
   timeoutMs?: number;
 }): Promise<unknown> {
-  const fetchImpl = opts.fetchImpl ?? fetch;
   const step = acctwebStep(opts.url);
-  logger.info(`acctweb ${step} GET ${redactUrl(opts.url)}`);
-  let response: Response;
+  logger.info(`acctweb ${step} GET ${opts.url}${opts.proxy ? ` proxy=${opts.proxy}` : ""}`);
+  const dispatcher = opts.proxy ? new ProxyAgent(opts.proxy) : undefined;
+  const signal = AbortSignal.timeout(opts.timeoutMs ?? ACCTWEB_TIMEOUT_MS);
+  const headers = { Accept: "application/json" };
+  const init: AcctwebInit = {
+    method: "GET",
+    headers,
+    signal,
+    ...(dispatcher ? { dispatcher } : {}),
+  };
   try {
-    response = await fetchImpl(opts.url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(opts.timeoutMs ?? ACCTWEB_TIMEOUT_MS),
-    });
+    const response = opts.fetchImpl
+      ? await opts.fetchImpl(opts.url, init)
+      : dispatcher
+        ? await undiciFetch(opts.url, { method: "GET", headers, signal, dispatcher })
+        : await fetch(opts.url, { method: "GET", headers, signal });
+    const rawText = await response.text();
+    if (!response.ok) {
+      logger.warn(`acctweb ${step} HTTP ${response.status} body=${redactBody(rawText)}`);
+      throw new BotSpamTicketError(FETCH_TICKET_FAILED);
+    }
+    try {
+      return JSON.parse(rawText) as unknown;
+    } catch (err) {
+      if (err instanceof BotSpamTicketError) throw err;
+      logger.warn(`acctweb ${step} response is not JSON body=${redactBody(rawText)}`);
+      throw new BotSpamTicketError(FETCH_TICKET_FAILED);
+    }
   } catch (err) {
     if (err instanceof BotSpamTicketError) throw err;
     logger.warn(`acctweb ${step} request failed: ${String(err)}`);
     throw new BotSpamTicketError(FETCH_TICKET_FAILED);
-  }
-  const rawText = await response.text();
-  if (!response.ok) {
-    logger.warn(`acctweb ${step} HTTP ${response.status} body=${redactBody(rawText)}`);
-    throw new BotSpamTicketError(FETCH_TICKET_FAILED);
-  }
-  try {
-    return JSON.parse(rawText) as unknown;
-  } catch (err) {
-    if (err instanceof BotSpamTicketError) throw err;
-    logger.warn(`acctweb ${step} response is not JSON body=${redactBody(rawText)}`);
-    throw new BotSpamTicketError(FETCH_TICKET_FAILED);
+  } finally {
+    if (dispatcher) {
+      await dispatcher.close().catch((err: unknown) => {
+        logger.warn(`acctweb proxy close failed: ${String(err)}`);
+      });
+    }
   }
 }
 
 export async function fetchBotSpamTicket(opts: {
   pluginVersion: string;
-  fetchImpl?: typeof fetch;
+  fetchImpl?: (input: string, init: AcctwebInit) => Promise<Response>;
   nowSec?: number;
   timeoutMs?: number;
   accountId?: string;
   acctwebOrigin?: string;
+  acctwebProxy?: string;
 }): Promise<BotSpamTicketContext> {
   const nowSec = opts.nowSec ?? Math.floor(Date.now() / 1000);
   const origin = requestAcctwebOrigin(opts);
-  logger.info(`get_auth_url plugin_version=${opts.pluginVersion} origin=${origin}`);
+  const proxy = requestAcctwebProxy(opts);
+  const routeTag = loadConfigRouteTag(opts.accountId);
+  logger.info(
+    `get_auth_url plugin_version=${opts.pluginVersion} origin=${origin} proxy=${proxy ?? ""} _cradle_hostname=${cradleHostname(routeTag) ?? ""}`,
+  );
   const raw = await acctwebGet({
-    url: acctwebUrl("get_auth_url", { plugin_version: opts.pluginVersion }, origin),
+    url: acctwebUrl("get_auth_url", { plugin_version: opts.pluginVersion }, origin, routeTag),
+    proxy,
     fetchImpl: opts.fetchImpl,
     timeoutMs: opts.timeoutMs,
   });
@@ -187,14 +270,18 @@ export async function fetchBotSpamTicket(opts: {
 
 export async function queryBotSpamAuthResult(opts: {
   botSpamTicket: string;
-  fetchImpl?: typeof fetch;
+  fetchImpl?: (input: string, init: AcctwebInit) => Promise<Response>;
   timeoutMs?: number;
   accountId?: string;
   acctwebOrigin?: string;
+  acctwebProxy?: string;
 }): Promise<BotSpamAuthStatus> {
   const origin = requestAcctwebOrigin(opts);
+  const proxy = requestAcctwebProxy(opts);
+  const routeTag = loadConfigRouteTag(opts.accountId);
   const raw = await acctwebGet({
-    url: acctwebUrl("query_auth_result", { bot_spam_ticket: opts.botSpamTicket }, origin),
+    url: acctwebUrl("query_auth_result", { bot_spam_ticket: opts.botSpamTicket }, origin, routeTag),
+    proxy,
     fetchImpl: opts.fetchImpl,
     timeoutMs: opts.timeoutMs,
   });

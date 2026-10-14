@@ -43,7 +43,7 @@ The following headers are added by the plugin where applicable:
 | `X-WECHAT-UIN` | Base64-encoded decimal representation of a random uint32 |
 | `iLink-App-Id` | The plugin application ID, currently `bot` |
 | `iLink-App-ClientVersion` | Plugin version encoded as `0x00MMNNPP` and sent as a decimal string |
-| `SKRouteTag` | Optional route tag configured by the deployment |
+| `SKRouteTag` | Optional route tag configured by the deployment. Every Weixin API URL also receives `_cradle_hostname=g<routeTag>` |
 
 Client behavior: QR-code status polling sends the application headers (`iLink-App-Id`, `iLink-App-ClientVersion`, and optional `SKRouteTag`). It does not add `AuthorizationType`, `Authorization`, or `X-WECHAT-UIN`. The QR-code POST request uses the JSON POST headers, including `AuthorizationType` and `X-WECHAT-UIN`, but omits `Authorization` and `base_info`.
 
@@ -100,7 +100,7 @@ Request body:
 }
 ```
 
-`local_token_list` may be empty. The client sends at most the most recent ten locally stored bot tokens. Before this request, the client GETs `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<plugin version>` and obtains `bot_spam_ticket`. `channels.openclaw-weixin.acctwebBaseUrl` can replace that origin's scheme, host, and port; the path stays the same. A test environment commonly uses `http://<office-network host>:8088`. Connecting to someone else's bot also polls `step=query_auth_result`; the client does not call `get_bot_qrcode` unless `auth_status` is `1`. Connecting to the operator's own bot does not query `auth_status`.
+`local_token_list` may be empty. The client sends at most the most recent ten locally stored bot tokens. Before this request, the client GETs `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<plugin version>` and obtains `bot_spam_ticket`. A configured `routeTag` adds `_cradle_hostname=g<routeTag>`. `channels.openclaw-weixin.acctwebBaseUrl` replaces only the origin; the path stays the same. `channels.openclaw-weixin.acctwebProxy` is the HTTP proxy for these two GET requests, and the target origin stays unchanged. Connecting to someone else's bot also polls `step=query_auth_result`; the client does not call `get_bot_qrcode` unless `auth_status` is `1`. Connecting to the operator's own bot does not query `auth_status`.
 
 Response body:
 

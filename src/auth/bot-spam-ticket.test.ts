@@ -1,10 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const { loadConfigRouteTag } = vi.hoisted(() => ({
+  loadConfigRouteTag: vi.fn((): string | undefined => undefined),
+}));
+
+vi.mock("./accounts.js", () => ({
+  loadConfigAcctwebBaseUrl: () => undefined,
+  loadConfigAcctwebProxy: () => undefined,
+  loadConfigRouteTag: () => loadConfigRouteTag(),
+}));
+
+import { ProxyAgent } from "undici";
+
 import {
   BotSpamTicketError,
+  cradleHostname,
   fetchBotSpamTicket,
   queryBotSpamAuthResult,
   resolveAcctwebOrigin,
+  resolveAcctwebProxy,
   waitForBotSpamAuth,
 } from "./bot-spam-ticket.js";
 
@@ -19,8 +33,16 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response;
 }
 
+describe("cradleHostname", () => {
+  it("prefixes the route tag with g", () => {
+    expect(cradleHostname("10086")).toBe("g10086");
+    expect(cradleHostname("g10086")).toBe("g10086");
+    expect(cradleHostname(undefined)).toBeUndefined();
+  });
+});
+
 describe("resolveAcctwebOrigin", () => {
-  it("keeps the public 443 origin when unset", () => {
+  it("keeps the public origin when unset", () => {
     expect(resolveAcctwebOrigin(undefined)).toBe("https://weixin110.qq.com");
     expect(resolveAcctwebOrigin("  ")).toBe("https://weixin110.qq.com");
   });
@@ -39,8 +61,30 @@ describe("resolveAcctwebOrigin", () => {
   });
 });
 
+describe("resolveAcctwebProxy", () => {
+  it("sends directly when unset", () => {
+    expect(resolveAcctwebProxy(undefined)).toBeUndefined();
+    expect(resolveAcctwebProxy("  ")).toBeUndefined();
+  });
+
+  it("keeps the proxy origin and drops a path", () => {
+    expect(resolveAcctwebProxy("http://10.1.2.3:8088")).toBe("http://10.1.2.3:8088");
+    expect(resolveAcctwebProxy("http://10.1.2.3:8088/ignored")).toBe("http://10.1.2.3:8088");
+  });
+
+  it("rejects a non-http proxy", () => {
+    expect(() => resolveAcctwebProxy("ftp://10.1.2.3:8088")).toThrow(
+      "绑定代理地址配置无效，连接已停止。",
+    );
+  });
+});
+
 describe("fetchBotSpamTicket", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    loadConfigRouteTag.mockReset();
+    loadConfigRouteTag.mockReturnValue(undefined);
+    vi.restoreAllMocks();
+  });
 
   it("returns the server ticket unchanged", async () => {
     const fetchImpl = vi.fn(async () =>
@@ -60,10 +104,12 @@ describe("fetchBotSpamTicket", () => {
       authUrl: AUTH_URL,
       expireTimeSec: 1_800_000_000,
     });
-    const url = String(fetchImpl.mock.calls[0][0]);
-    expect(url).toContain("https://weixin110.qq.com/security/acct/botrealnameverifycgi");
-    expect(url).toContain("step=get_auth_url");
-    expect(url).toContain("plugin_version=2.4.10");
+    const url = new URL(String(fetchImpl.mock.calls[0][0]));
+    expect(url.origin).toBe("https://weixin110.qq.com");
+    expect(url.pathname).toBe("/security/acct/botrealnameverifycgi");
+    expect(url.searchParams.get("step")).toBe("get_auth_url");
+    expect(url.searchParams.get("plugin_version")).toBe("2.4.10");
+    expect(url.searchParams.get("_cradle_hostname")).toBeNull();
     expect(fetchImpl.mock.calls[0][1]).toMatchObject({
       method: "GET",
       headers: { Accept: "application/json" },
@@ -88,6 +134,69 @@ describe("fetchBotSpamTicket", () => {
     expect(url.origin).toBe("http://10.1.2.3:8088");
     expect(url.pathname).toBe("/security/acct/botrealnameverifycgi");
     expect(url.searchParams.get("step")).toBe("get_auth_url");
+    expect(fetchImpl.mock.calls[0][1]).not.toHaveProperty("dispatcher");
+  });
+
+  it("sends the public origin through an HTTP proxy", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({
+        bot_spam_ticket: TICKET,
+        auth_url: AUTH_URL,
+        expire_time: 1_800_000_000,
+      }),
+    );
+    await fetchBotSpamTicket({
+      pluginVersion: "3.0.0-dev-003",
+      fetchImpl,
+      nowSec: 1_700_000_000,
+      acctwebProxy: "http://10.1.2.3:8088",
+    });
+    const url = new URL(String(fetchImpl.mock.calls[0][0]));
+    expect(url.origin).toBe("https://weixin110.qq.com");
+    expect(url.pathname).toBe("/security/acct/botrealnameverifycgi");
+    expect(fetchImpl.mock.calls[0][1]?.dispatcher).toBeInstanceOf(ProxyAgent);
+  });
+
+  it("reads the ticket from a data envelope when expire_time is a string", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({
+        ret: 0,
+        data: {
+          bot_spam_ticket: TICKET,
+          auth_url: AUTH_URL,
+          expire_time: "1800000000",
+        },
+      }),
+    );
+    const got = await fetchBotSpamTicket({
+      pluginVersion: "3.0.0-dev-003",
+      fetchImpl,
+      nowSec: 1_700_000_000,
+    });
+    expect(got).toEqual({
+      botSpamTicket: TICKET,
+      authUrl: AUTH_URL,
+      expireTimeSec: 1_800_000_000,
+    });
+  });
+
+  it("appends _cradle_hostname when a route tag is configured", async () => {
+    loadConfigRouteTag.mockReturnValue("10086");
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({
+        bot_spam_ticket: TICKET,
+        auth_url: AUTH_URL,
+        expire_time: 1_800_000_000,
+      }),
+    );
+    await fetchBotSpamTicket({
+      pluginVersion: "3.0.0-dev-001",
+      fetchImpl,
+      nowSec: 1_700_000_000,
+    });
+    const url = new URL(String(fetchImpl.mock.calls[0][0]));
+    expect(url.origin).toBe("https://weixin110.qq.com");
+    expect(url.searchParams.get("_cradle_hostname")).toBe("g10086");
   });
 
   it("rejects a non-zero ret even if a ticket is present", async () => {
@@ -188,5 +297,10 @@ describe("queryBotSpamAuthResult", () => {
     await expect(queryBotSpamAuthResult({ botSpamTicket: TICKET, fetchImpl })).resolves.toBe(1);
     expect(String(fetchImpl.mock.calls[0][0])).toContain(`bot_spam_ticket=${TICKET}`);
     expect(String(fetchImpl.mock.calls[0][0])).toContain("step=query_auth_result");
+  });
+
+  it("reads auth_status from a data envelope", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ ret: 0, data: { auth_status: 1 } }));
+    await expect(queryBotSpamAuthResult({ botSpamTicket: TICKET, fetchImpl })).resolves.toBe(1);
   });
 });
