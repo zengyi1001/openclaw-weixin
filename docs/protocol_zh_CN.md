@@ -93,6 +93,8 @@ POST /ilink/bot/get_bot_qrcode?bot_type=3
 
 请求体：
 
+连到他人的 Bot 时，请求体带上实名凭证：
+
 ```json
 {
   "local_token_list": [],
@@ -100,7 +102,15 @@ POST /ilink/bot/get_bot_qrcode?bot_type=3
 }
 ```
 
-`local_token_list` 可以为空。客户端最多发送本地保存的最近 10 个 Bot token。获取这张绑定二维码之前，客户端先 GET `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<插件版本>`，拿到 `bot_spam_ticket`。配置了 `routeTag` 时还会带上 `_cradle_hostname=g<routeTag>`。`channels.openclaw-weixin.acctwebBaseUrl` 只更换源地址，路径不变。`channels.openclaw-weixin.acctwebProxy` 是这两次 GET 使用的 HTTP 代理，目标源地址不变。选择连到他人的 Bot 时，才会继续 GET `step=query_auth_result`；`auth_status` 不是 `1` 时不调用 `get_bot_qrcode`。选择连到本人的 Bot 时不查询 `auth_status`。
+连到本人的 Bot 时，请求体只有本地 token 列表：
+
+```json
+{
+  "local_token_list": []
+}
+```
+
+`local_token_list` 可以为空。客户端最多发送本地保存的最近 10 个 Bot token。选择连到他人的 Bot 时，客户端先 GET `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<插件版本>`，拿到 `bot_spam_ticket`，再 GET `step=query_auth_result`；`auth_status` 不是 `1` 时不调用 `get_bot_qrcode`。配置了 `routeTag` 时还会带上 `_cradle_hostname=g<routeTag>`。`channels.openclaw-weixin.acctwebBaseUrl` 只更换源地址，路径不变。`channels.openclaw-weixin.acctwebProxy` 是这两次 GET 使用的 HTTP 代理，目标源地址不变。选择连到本人的 Bot 时，不调用 `get_auth_url`，也不在绑定请求里传递 `bot_spam_ticket`。
 
 响应体：
 

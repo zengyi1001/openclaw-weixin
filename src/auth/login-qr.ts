@@ -54,8 +54,9 @@ type ActiveLogin = {
   /** 待提交的配对码，用户输入后暂存，下次轮询时携带 */
   pendingVerifyCode?: string;
   bindOwnerMode: BindOwnerMode;
-  botSpamTicket: string;
-  ticketExpireTimeSec: number;
+  /** Present only for other-owner binds. Self binds omit the spam ticket. */
+  botSpamTicket?: string;
+  ticketExpireTimeSec?: number;
 };
 
 /** Client-side timeout for the long-poll get_qrcode_status request. */
@@ -117,20 +118,25 @@ export function statusNeedsVerifyCode(status: string): boolean {
 async function fetchQRCode(
   apiBaseUrl: string,
   botType: string,
-  botSpamTicket: string,
+  botSpamTicket?: string,
   fetchImpl?: typeof fetch,
 ): Promise<QRCodeResponse> {
-  if (!TICKET_RE.test(botSpamTicket)) {
-    throw new BotSpamTicketError("无法获取绑定凭证，连接已停止。");
-  }
   logger.info(`NewFetching QR code from: ${apiBaseUrl} bot_type=${botType}`);
   const localTokenList = getLocalBotTokenList();
   logger.info(`newfetchQRCode: local_token_list count=${localTokenList.length}`);
-  const body = JSON.stringify({
+  const payload: { local_token_list: string[]; bot_spam_ticket?: string } = {
     local_token_list: localTokenList,
-    bot_spam_ticket: botSpamTicket,
-  });
-  logger.info(`fetchQRCode: bot_spam_ticket=${redactToken(botSpamTicket)}`);
+  };
+  if (botSpamTicket !== undefined) {
+    if (!TICKET_RE.test(botSpamTicket)) {
+      throw new BotSpamTicketError("无法获取绑定凭证，连接已停止。");
+    }
+    payload.bot_spam_ticket = botSpamTicket;
+    logger.info(`fetchQRCode: bot_spam_ticket=${redactToken(botSpamTicket)}`);
+  } else {
+    logger.info("fetchQRCode: omit bot_spam_ticket");
+  }
+  const body = JSON.stringify(payload);
   if (fetchImpl) {
     const url = `${apiBaseUrl.replace(/\/$/, "")}/ilink/bot/get_bot_qrcode?bot_type=${encodeURIComponent(botType)}`;
     const response = await fetchImpl(url, {
@@ -272,14 +278,15 @@ export async function startWeixinLoginWithQr(opts: {
     const botType = opts.botType || DEFAULT_ILINK_BOT_TYPE;
     const bindOwnerMode = await readOwnerChoice({ readLine, write });
     logger.info(`Starting Weixin login with bot_type=${botType} bindOwnerMode=${bindOwnerMode}`);
-    const nowSec = Math.floor(nowMs() / 1000);
-    let ticket = await fetchBotSpamTicket({
-      pluginVersion: getPluginVersion(),
-      fetchImpl: io.fetchImpl,
-      nowSec,
-      accountId: opts.accountId,
-    });
+    let ticket: BotSpamTicketContext | undefined;
     if (bindOwnerMode === "other") {
+      const nowSec = Math.floor(nowMs() / 1000);
+      ticket = await fetchBotSpamTicket({
+        pluginVersion: getPluginVersion(),
+        fetchImpl: io.fetchImpl,
+        nowSec,
+        accountId: opts.accountId,
+      });
       ticket = await authorizeOtherOwner({
         ticket,
         write,
@@ -289,14 +296,12 @@ export async function startWeixinLoginWithQr(opts: {
         accountId: opts.accountId,
       });
     } else {
-      logger.info(
-        `bindOwnerMode=self, skip query_auth_result ticket=${redactToken(ticket.botSpamTicket)} expire_time=${ticket.expireTimeSec}`,
-      );
+      logger.info("bindOwnerMode=self, skip get_auth_url and bot_spam_ticket");
     }
     const qrResponse = await fetchQRCode(
       FIXED_BASE_URL,
       botType,
-      ticket.botSpamTicket,
+      ticket?.botSpamTicket,
       io.fetchImpl,
     );
     logger.info(
@@ -311,8 +316,8 @@ export async function startWeixinLoginWithQr(opts: {
       qrcodeUrl: qrResponse.qrcode_img_content,
       startedAt: nowMs(),
       bindOwnerMode,
-      botSpamTicket: ticket.botSpamTicket,
-      ticketExpireTimeSec: ticket.expireTimeSec,
+      botSpamTicket: ticket?.botSpamTicket,
+      ticketExpireTimeSec: ticket?.expireTimeSec,
     };
     activeLogins.set(sessionKey, login);
 
@@ -388,7 +393,10 @@ async function refreshQRCode(
   process.stdout.write(`\n⏳ 正在刷新二维码...(${qrRefreshCount}/${MAX_QR_REFRESH_COUNT})\n`);
   logger.info(`waitForWeixinLogin: refreshing QR code (${qrRefreshCount}/${MAX_QR_REFRESH_COUNT})`);
   const nowSec = Math.floor(Date.now() / 1000);
-  if (activeLogin.ticketExpireTimeSec - nowSec <= TICKET_REFRESH_MARGIN_SEC) {
+  if (
+    activeLogin.botSpamTicket !== undefined &&
+    (activeLogin.ticketExpireTimeSec ?? 0) - nowSec <= TICKET_REFRESH_MARGIN_SEC
+  ) {
     logger.warn(
       `refreshQRCode stopped: ticket expires within ${TICKET_REFRESH_MARGIN_SEC}s expire_time=${activeLogin.ticketExpireTimeSec} nowSec=${nowSec}`,
     );

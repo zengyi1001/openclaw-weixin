@@ -17,7 +17,6 @@ const fetchImpl = vi.fn();
 import { startWeixinLoginWithQr, statusNeedsVerifyCode } from "./login-qr.js";
 
 const TICKET = "0a1b2c3d4e5f60718293a4b5c6d7e8f9";
-const TICKET_2 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -47,10 +46,8 @@ beforeEach(() => {
 });
 
 describe("startWeixinLoginWithQr", () => {
-  it("self mode fetches a ticket and posts it with the bind qr request", async () => {
-    fetchImpl
-      .mockResolvedValueOnce(jsonResponse(ticketBody(TICKET)))
-      .mockResolvedValueOnce(jsonResponse(qrBody("qr-1")));
+  it("self mode skips the security ticket and omits bot_spam_ticket", async () => {
+    fetchImpl.mockResolvedValueOnce(jsonResponse(qrBody("qr-1")));
     const readLine = vi.fn(async () => "");
     const result = await startWeixinLoginWithQr({
       apiBaseUrl: "https://ilinkai.weixin.qq.com",
@@ -66,17 +63,16 @@ describe("startWeixinLoginWithQr", () => {
     expect(result.qrcodeUrl).toBe("https://ilinkai.weixin.qq.com/ilink/q/qr-1");
     expect(result.bindOwnerMode).toBe("self");
     expect(result.message).toContain("让连接此 OpenClaw 的用户用手机微信扫描以下二维码");
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-    expect(String(fetchImpl.mock.calls[0][0])).toContain("step=get_auth_url");
-    const post = fetchImpl.mock.calls[1][1] as RequestInit;
-    expect(String(fetchImpl.mock.calls[1][0])).toContain("get_bot_qrcode");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const post = fetchImpl.mock.calls[0][1] as RequestInit;
+    expect(String(fetchImpl.mock.calls[0][0])).toContain("get_bot_qrcode");
     expect(JSON.parse(String(post.body))).toEqual({
       local_token_list: [],
-      bot_spam_ticket: TICKET,
     });
-    expect(fetchImpl.mock.calls.map((call) => String(call[0])).join("\n")).not.toContain(
-      "query_auth_result",
-    );
+    const urls = fetchImpl.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(urls).not.toContain("get_auth_url");
+    expect(urls).not.toContain("query_auth_result");
+    expect(String(post.body)).not.toContain("bot_spam_ticket");
   });
 
   it("other mode waits for auth_status 1 before posting the bind qr", async () => {
@@ -132,7 +128,12 @@ describe("startWeixinLoginWithQr", () => {
     const result = await startWeixinLoginWithQr({
       apiBaseUrl: "https://ilinkai.weixin.qq.com",
       accountId: "http-fail",
-      io: { readLine: async () => "", fetchImpl, nowMs: () => 1_700_000_000_000, write: () => {} },
+      io: {
+        readLine: async () => "n",
+        fetchImpl,
+        nowMs: () => 1_700_000_000_000,
+        write: () => {},
+      },
     });
     expect(result.qrcodeUrl).toBeUndefined();
     expect(result.message).toBe("无法获取绑定凭证，连接已停止。");
@@ -141,9 +142,7 @@ describe("startWeixinLoginWithQr", () => {
 
   it("restarts the whole flow on every call for the same account", async () => {
     fetchImpl
-      .mockResolvedValueOnce(jsonResponse(ticketBody(TICKET)))
       .mockResolvedValueOnce(jsonResponse(qrBody("qr-1")))
-      .mockResolvedValueOnce(jsonResponse(ticketBody(TICKET_2)))
       .mockResolvedValueOnce(jsonResponse(qrBody("qr-2")));
     const readLine = vi.fn(async () => "");
     const io = {
@@ -167,12 +166,14 @@ describe("startWeixinLoginWithQr", () => {
     expect(readLine).toHaveBeenCalledTimes(2);
     expect(
       fetchImpl.mock.calls.filter((call) => String(call[0]).includes("get_auth_url")),
-    ).toHaveLength(2);
+    ).toHaveLength(0);
     expect(first.qrcodeUrl).toBe("https://ilinkai.weixin.qq.com/ilink/q/qr-1");
     expect(second.qrcodeUrl).toBe("https://ilinkai.weixin.qq.com/ilink/q/qr-2");
-    expect(
-      JSON.parse(String((fetchImpl.mock.calls[3][1] as RequestInit).body)).bot_spam_ticket,
-    ).toBe(TICKET_2);
+    for (const call of fetchImpl.mock.calls) {
+      expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({
+        local_token_list: [],
+      });
+    }
   });
 });
 

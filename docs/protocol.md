@@ -93,6 +93,8 @@ POST /ilink/bot/get_bot_qrcode?bot_type=3
 
 Request body:
 
+When connecting to someone else's bot, the body includes the real-name credential:
+
 ```json
 {
   "local_token_list": [],
@@ -100,7 +102,15 @@ Request body:
 }
 ```
 
-`local_token_list` may be empty. The client sends at most the most recent ten locally stored bot tokens. Before this request, the client GETs `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<plugin version>` and obtains `bot_spam_ticket`. A configured `routeTag` adds `_cradle_hostname=g<routeTag>`. `channels.openclaw-weixin.acctwebBaseUrl` replaces only the origin; the path stays the same. `channels.openclaw-weixin.acctwebProxy` is the HTTP proxy for these two GET requests, and the target origin stays unchanged. Connecting to someone else's bot also polls `step=query_auth_result`; the client does not call `get_bot_qrcode` unless `auth_status` is `1`. Connecting to the operator's own bot does not query `auth_status`.
+When connecting to the operator's own bot, the body is only the local token list:
+
+```json
+{
+  "local_token_list": []
+}
+```
+
+`local_token_list` may be empty. The client sends at most the most recent ten locally stored bot tokens. Connecting to someone else's bot first GETs `https://weixin110.qq.com/security/acct/botrealnameverifycgi?step=get_auth_url&plugin_version=<plugin version>` for `bot_spam_ticket`, then polls `step=query_auth_result`. The client does not call `get_bot_qrcode` unless `auth_status` is `1`. A configured `routeTag` adds `_cradle_hostname=g<routeTag>`. `channels.openclaw-weixin.acctwebBaseUrl` replaces only the origin; the path stays the same. `channels.openclaw-weixin.acctwebProxy` is the HTTP proxy for these two GET requests, and the target origin stays unchanged. Connecting to the operator's own bot does not call `get_auth_url` and does not send `bot_spam_ticket`.
 
 Response body:
 
