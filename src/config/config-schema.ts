@@ -1,3 +1,4 @@
+import path from "node:path";
 import { z } from "zod";
 
 import { CDN_BASE_URL, DEFAULT_BASE_URL } from "../auth/accounts.js";
@@ -26,6 +27,16 @@ const weixinAccountSchema = z.object({
 
 const quoteCacheSchema = z.object({
   enabled: z.boolean().default(true),
+  mediaStorage: z
+    .discriminatedUnion("mode", [
+      z.object({ mode: z.literal("inbound") }),
+      z.object({ mode: z.literal("managed") }),
+      z.object({
+        mode: z.literal("custom"),
+        directory: z.string().min(1).refine(path.isAbsolute, "must be an absolute path"),
+      }),
+    ])
+    .default({ mode: "managed" }),
   retentionDays: z.number().positive().default(30),
   maxMessagesPerAccount: z.number().int().positive().default(10_000),
   mediaRetentionDays: z.number().positive().default(7),
@@ -47,6 +58,7 @@ export const WeixinConfigSchema = weixinAccountSchema.extend({
   replyProgressMessages: z.boolean().default(true),
   quoteCache: quoteCacheSchema.default({
     enabled: true,
+    mediaStorage: { mode: "managed" },
     retentionDays: 30,
     maxMessagesPerAccount: 10_000,
     mediaRetentionDays: 7,

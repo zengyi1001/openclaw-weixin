@@ -9,6 +9,7 @@ describe("WeixinConfigSchema", () => {
     expect(result.replyProgressMessages).toBe(true);
     expect(result.quoteCache).toEqual({
       enabled: true,
+      mediaStorage: { mode: "managed" },
       retentionDays: 30,
       maxMessagesPerAccount: 10_000,
       mediaRetentionDays: 7,

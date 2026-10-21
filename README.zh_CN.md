@@ -137,6 +137,7 @@ openclaw config set 'channels["openclaw-weixin"].acctwebProxy' '"http://proxy.ex
 
 如需调整保留时间或空间限制，可配置 `channels.openclaw-weixin.quoteCache`。默认文本缓存保留 30 天、
 每个账号最多 10,000 条；媒体缓存保留 7 天、每个账号最多 256 MiB、单个文件最多 25 MiB。
+媒体默认沿用原有的插件受管目录（它仍位于 OpenClaw 的 inbound 树下）。也可直接使用通用 inbound 目录，或配置 inbound 之外的独立目录；前两种方式都可能受 OpenClaw 通用媒体清理影响，需自行确保清理期限符合引用需求。
 完整配置、存储行为和验证说明见[引用消息本地缓存开发说明](./docs/quote-cache_zh_CN.md)。
 
 ## 卸载

@@ -513,7 +513,12 @@ export const weixinPlugin: ChannelPlugin<ResolvedWeixinAccount> = {
         throw new Error("weixin not configured: missing token");
       }
 
-      await initializeQuoteStore(ctx.cfg, account.accountId);
+      try {
+        await initializeQuoteStore(ctx.cfg, account.accountId);
+      } catch (err) {
+        ctx.setStatus?.({ accountId: account.accountId, running: false });
+        throw err;
+      }
 
       ctx.log?.info?.(`[${account.accountId}] starting weixin provider (${DEFAULT_BASE_URL})`);
 

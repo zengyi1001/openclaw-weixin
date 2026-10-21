@@ -33,6 +33,7 @@ let stores: QuoteStore[];
 function policy(overrides: Partial<QuoteCachePolicy> = {}): QuoteCachePolicy {
   return {
     enabled: true,
+    mediaStorage: { mode: "managed" },
     retentionMs: 30 * 24 * 60 * 60 * 1000,
     maxMessagesPerAccount: 10_000,
     mediaRetentionMs: 7 * 24 * 60 * 60 * 1000,
@@ -291,11 +292,11 @@ describe("QuoteStore", () => {
       sourceMediaPath: path.join(rootDir, "does-not-exist.bin"),
       createdAt: Date.now(),
     });
-    expect(store.find("account", "user", "missing")?.mediaPath).toBeUndefined();
+    expect(store.find("account", "user", "missing")?.mediaPath).toBe(
+      path.resolve(rootDir, "does-not-exist.bin"),
+    );
 
-    const orphanDir = path.join(mediaRoot, "nested");
-    fs.mkdirSync(orphanDir, { recursive: true });
-    const orphan = path.join(orphanDir, "orphan.bin");
+    const orphan = managedMediaPath("account", "orphan.bin");
     fs.writeFileSync(orphan, "orphan");
     store.runGc();
     expect(fs.existsSync(orphan)).toBe(false);
@@ -326,7 +327,7 @@ describe("QuoteStore", () => {
     ).resolves.toBeNull();
   });
 
-  it("returns null when the database directory cannot be created", async () => {
+  it("throws when the database directory cannot be created", async () => {
     const fileInsteadOfDirectory = path.join(rootDir, "plain-file");
     fs.writeFileSync(fileInsteadOfDirectory, "not a directory");
     await expect(
@@ -334,7 +335,9 @@ describe("QuoteStore", () => {
         rootDir: path.join(fileInsteadOfDirectory, "child"),
         policy: policy(),
       }),
-    ).resolves.toBeNull();
+    ).rejects.toThrow(
+      "Quote Cache initialization failed while creating Quote Cache storage directories",
+    );
   });
 
   it("ignores invalid writes, isolates unsafe account names, and substitutes invalid timestamps", async () => {
@@ -388,7 +391,7 @@ describe("QuoteStore", () => {
     store.runGc();
   });
 
-  it("refuses to claim media outside its account-owned directory", async () => {
+  it("records media outside its account directory without taking ownership", async () => {
     const source = path.join(rootDir, "outside.bin");
     fs.writeFileSync(source, "content");
     const store = await open();
@@ -401,11 +404,11 @@ describe("QuoteStore", () => {
       sourceMediaPath: source,
       createdAt: Date.now(),
     });
-    expect(store.find("account", "user", "outside")?.mediaPath).toBeUndefined();
+    expect(store.find("account", "user", "outside")?.mediaPath).toBe(path.resolve(source));
     expect(fs.existsSync(source)).toBe(true);
   });
 
-  it("moves legacy media into the OpenClaw-managed cache and rewrites its database path", async () => {
+  it("keeps an existing media path when the store is reopened under another media root", async () => {
     const legacyRoot = path.join(rootDir, "ref-media");
     const legacyStore = await QuoteStore.open({
       rootDir,
@@ -472,15 +475,13 @@ describe("QuoteStore", () => {
 
     const migratedStore = await open();
     const migrated = migratedStore.find("account", "user", "legacy");
-    expect(migrated?.mediaPath).toBe(managedMediaPath("account", "legacy.pdf"));
+    expect(migrated?.mediaPath).toBe(legacyPath);
     expect(migrated?.mediaName).toBe("report.pdf");
-    expect(fs.existsSync(migrated!.mediaPath!)).toBe(true);
-    expect(fs.existsSync(legacyPath)).toBe(false);
-    expect(migratedStore.find("account", "user", "legacy-shared")?.mediaPath).toBe(
-      migrated?.mediaPath,
-    );
-    expect(migratedStore.find("account", "user", "existing")?.mediaPath).toBe(existingManagedPath);
-    expect(fs.existsSync(existingLegacyPath)).toBe(false);
+    expect(fs.existsSync(legacyPath)).toBe(true);
+    expect(migratedStore.find("account", "user", "legacy-shared")?.mediaPath).toBe(legacyPath);
+    expect(migratedStore.find("account", "user", "existing")?.mediaPath).toBe(existingLegacyPath);
+    expect(fs.existsSync(existingLegacyPath)).toBe(true);
+    expect(fs.existsSync(existingManagedPath)).toBe(false);
   });
 });
 
