@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import { apiGetFetch, apiPostFetch, getPluginVersion } from "../api/api.js";
-import { listIndexedWeixinAccountIds, loadWeixinAccount } from "./accounts.js";
+import {
+  listIndexedWeixinAccountIds,
+  loadConfigPromptBindOwner,
+  loadWeixinAccount,
+} from "./accounts.js";
 import {
   PROMPT_BIND,
   PROMPT_REALNAME,
@@ -276,8 +280,11 @@ export async function startWeixinLoginWithQr(opts: {
 
   try {
     const botType = opts.botType || DEFAULT_ILINK_BOT_TYPE;
-    const bindOwnerMode = await readOwnerChoice({ readLine, write });
-    logger.info(`Starting Weixin login with bot_type=${botType} bindOwnerMode=${bindOwnerMode}`);
+    const promptBindOwner = loadConfigPromptBindOwner();
+    const bindOwnerMode = promptBindOwner ? await readOwnerChoice({ readLine, write }) : "self";
+    logger.info(
+      `Starting Weixin login with bot_type=${botType} bindOwnerMode=${bindOwnerMode} promptBindOwner=${promptBindOwner}`,
+    );
     let ticket: BotSpamTicketContext | undefined;
     if (bindOwnerMode === "other") {
       const nowSec = Math.floor(nowMs() / 1000);

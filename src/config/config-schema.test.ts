@@ -7,6 +7,7 @@ describe("WeixinConfigSchema", () => {
     expect(result.baseUrl).toBe("https://ilinkai.weixin.qq.com");
     expect(result.cdnBaseUrl).toBe("https://novac2c.cdn.weixin.qq.com/c2c");
     expect(result.replyProgressMessages).toBe(true);
+    expect(result.promptBindOwner).toBe(false);
     expect(result.quoteCache).toEqual({
       enabled: true,
       mediaStorage: { mode: "managed" },
@@ -48,6 +49,11 @@ describe("WeixinConfigSchema", () => {
     });
     expect(result.name).toBe("my-bot");
     expect(result.enabled).toBe(false);
+  });
+
+  it("asks for the bind-owner choice only when promptBindOwner is true", () => {
+    expect(WeixinConfigSchema.parse({}).promptBindOwner).toBe(false);
+    expect(WeixinConfigSchema.parse({ promptBindOwner: true }).promptBindOwner).toBe(true);
   });
 
   it("accepts disabling reply progress messages", () => {

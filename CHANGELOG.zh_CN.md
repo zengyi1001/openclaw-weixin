@@ -8,6 +8,7 @@
 
 ### 变更
 
+- **本人/实名选择改为配置：** `channels.openclaw-weixin.promptBindOwner` 默认关闭。关闭时直接弹出 bot 绑定二维码，不询问，也不获取实名凭证。设为 `true` 后才询问：回车或 Y 走本人绑定，N 先完成实名授权再出绑定码。
 - **本人连接不再获取实名凭证：** 选择连到本人的微信 ClawBot 时，不再调用安全 `get_auth_url`，绑定二维码请求也不再携带 `bot_spam_ticket`。连到他人的 Bot 时仍先完成实名授权并带上 ticket。
 
 ## [3.0.0-dev-001] - 2026-10-14

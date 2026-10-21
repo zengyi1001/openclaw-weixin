@@ -96,6 +96,12 @@ openclaw config set 'channels["openclaw-weixin"].acctwebProxy' '"http://proxy.ex
 
 When `channels.openclaw-weixin.routeTag` is set, every Weixin API request adds `_cradle_hostname=g<routeTag>`. A route tag of `10086` sends `_cradle_hostname=g10086`.
 
+`channels.openclaw-weixin.promptBindOwner` is off by default. Login then shows the bot bind QR immediately. Set it to `true` to ask whether this OpenClaw connects to the operator's own WeChat ClawBot: Enter or Y shows the bind QR, and N completes real-name authorization first.
+
+```bash
+openclaw config set 'channels["openclaw-weixin"].promptBindOwner' true --strict-json
+```
+
 ### Custom BotAgent
 
 Set an optional identifier for backend log attribution and monitoring:

@@ -340,6 +340,16 @@ export function loadConfigAcctwebProxy(accountId?: string): string | undefined {
  * Returns the raw configured string (caller is responsible for sanitization)
  * or undefined when not set. Reuses the cached channel section.
  */
+/**
+ * Read `promptBindOwner` from `channels.openclaw-weixin.promptBindOwner`.
+ * Only an explicit `true` asks the operator to choose self bind or real-name bind.
+ * Missing or any other value keeps the historical path: show the bot bind QR directly.
+ */
+export function loadConfigPromptBindOwner(): boolean {
+  const section = loadRouteTagSection();
+  return section?.promptBindOwner === true;
+}
+
 export function loadConfigBotAgent(): string | undefined {
   const section = loadRouteTagSection();
   if (!section) return undefined;

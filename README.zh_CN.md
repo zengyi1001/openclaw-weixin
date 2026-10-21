@@ -96,6 +96,12 @@ openclaw config set 'channels["openclaw-weixin"].acctwebProxy' '"http://proxy.ex
 
 配置了 `channels.openclaw-weixin.routeTag` 时，所有微信接口请求都会带上 `_cradle_hostname=g<routeTag>`。例如 `routeTag` 为 `10086` 时，参数是 `_cradle_hostname=g10086`。
 
+`channels.openclaw-weixin.promptBindOwner` 默认关闭。关闭时登录直接弹出 bot 绑定二维码。设为 `true` 后，终端会询问是否连到本人的微信 ClawBot：回车或 Y 直接出绑定码，N 先完成实名授权再出绑定码。
+
+```bash
+openclaw config set 'channels["openclaw-weixin"].promptBindOwner' true --strict-json
+```
+
 ### 自定义 BotAgent
 
 可以设置一个用于后台日志归因和监控的标识：

@@ -8,6 +8,7 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- **Bind-owner prompt is opt-in:** `channels.openclaw-weixin.promptBindOwner` defaults to off. Login then shows the bot bind QR immediately, with no prompt and no real-name credential. Set it to `true` to ask: Enter or Y binds the operator's own bot, and N completes real-name authorization before the bind QR.
 - **Self-bind skips the real-name credential:** Choosing the operator's own WeChat ClawBot no longer calls `get_auth_url`, and the bind QR request no longer includes `bot_spam_ticket`. Binding someone else's bot still waits for real-name authorization and sends the ticket.
 
 ## [3.0.0-dev-001] - 2026-10-14

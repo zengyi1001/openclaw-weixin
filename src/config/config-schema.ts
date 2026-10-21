@@ -56,6 +56,12 @@ const quoteCacheSchema = z.object({
 export const WeixinConfigSchema = weixinAccountSchema.extend({
   accounts: z.record(z.string(), weixinAccountSchema).optional(),
   replyProgressMessages: z.boolean().default(true),
+  /**
+   * Ask whether this OpenClaw connects to the operator's own WeChat ClawBot.
+   * Y shows the bot bind QR directly. N completes real-name authorization first.
+   * Default false: show the bot bind QR with no prompt and no bot_spam_ticket.
+   */
+  promptBindOwner: z.boolean().default(false),
   quoteCache: quoteCacheSchema.default({
     enabled: true,
     mediaStorage: { mode: "managed" },

@@ -1,6 +1,6 @@
 {
   "name": "@tencent-weixin/openclaw-weixin",
-  "version": "3.0.0-inner-dev",
+  "version": "3.0.1",
   "description": "OpenClaw Weixin channel",
   "license": "MIT",
   "author": "Tencent",
