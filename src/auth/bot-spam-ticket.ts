@@ -198,7 +198,7 @@ async function acctwebGet(opts: {
   timeoutMs?: number;
 }): Promise<unknown> {
   const step = acctwebStep(opts.url);
-  logger.info(`acctweb ${step} GET ${opts.url}${opts.proxy ? ` proxy=${opts.proxy}` : ""}`);
+  logger.info(`acctweb ${step} GET ${redactUrl(opts.url)}${opts.proxy ? ` proxy=${opts.proxy}` : ""}`);
   const dispatcher = opts.proxy ? new ProxyAgent(opts.proxy) : undefined;
   const signal = AbortSignal.timeout(opts.timeoutMs ?? ACCTWEB_TIMEOUT_MS);
   const headers = { Accept: "application/json" };
