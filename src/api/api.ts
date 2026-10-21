@@ -326,7 +326,7 @@ export async function apiGetFetch(params: {
   const routeTag = loadConfigRouteTag();
   appendCradleHostname(url, routeTag);
   const hdrs = buildCommonHeaders();
-  logger.info(`GET ${url.toString()}`);
+  logger.debug(`GET ${redactUrl(url.toString())}`);
 
   const timeoutMs = params.timeoutMs;
   const controller = timeoutMs != null && timeoutMs > 0 ? new AbortController() : undefined;
@@ -408,7 +408,7 @@ export async function apiPostFetch(params: {
   const routeTag = loadConfigRouteTag();
   appendCradleHostname(url, routeTag);
   const hdrs = buildHeaders({ token: params.token });
-  logger.info(`POST ${url.toString()} body=${redactBody(params.body)}`);
+  logger.debug(`POST ${redactUrl(url.toString())} body=${redactBody(params.body)}`);
 
   const controller = params.timeoutMs !== undefined ? new AbortController() : undefined;
   const t =
